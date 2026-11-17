@@ -1,0 +1,41 @@
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+
+# Uploads & Outputs (prevent committing big media files)
+outputs/
+uploads/
+*.mp4
+*.mkv
+*.avi
+*.mov
+*.flv
+*.webm
+*.ts
+*.mp3
+*.wav
+*.flac
+*.m4a
+*.ogg
+*.zip
+
+# Temporary files & logs
+temp*/
+*.log
+*.tmp
+
+# Editor & OS settings
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini

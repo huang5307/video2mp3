@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video2MP3 - 智慧音樂切分與辨識工具</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        [v-cloak] { display: none; }
+        .gradient-bg {
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #090d16 100%);
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen text-slate-100 antialiased selection:bg-indigo-500 selection:text-white">
+    <div id="app" v-cloak class="max-w-5xl mx-auto px-4 py-8">
+        
+        <!-- Header -->
+        <header class="flex items-center justify-between pb-6 mb-8 border-b border-slate-800">
+            <div class="flex items-center space-x-3">
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-indigo-500 to-rose-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                    <i class="fa-solid fa-music text-xl text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-400">
+                        Video2MP3 智慧音樂切分工具
+                    </h1>
+                    <p class="text-xs text-slate-400">支援批次多檔 • 影片/音訊雙支援 • 單曲智慧重命名 • 多曲自動切分 • 多語言原名保留</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 mr-2 animate-pulse"></span>
+                    本機服務運行中
+                </span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="space-y-6">
+
+            <!-- 設定卡片 -->
+            <section class="glass-panel rounded-2xl p-5 shadow-xl border border-slate-700/60">
+                <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-800">
+                    <h2 class="text-sm font-semibold text-slate-200 flex items-center">
+                        <i class="fa-solid fa-sliders text-indigo-400 mr-2"></i>
+                        儲存目錄與識別偏好設定（完全獨立於專案目錄）
+                    </h2>
+                    <span class="text-[11px] text-emerald-400 flex items-center">
+                        <i class="fa-solid fa-shield-halved mr-1"></i> 專案資料夾保持 100% 清爽
+                    </span>
+                </div>
+                
+                <div class="space-y-4 text-xs">
+                    <!-- 第一行：Output 與 語言偏好 -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- 輸出目錄設定 -->
+                        <div>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label class="text-slate-300 font-medium">
+                                    <i class="fa-solid fa-folder-tree text-amber-400 mr-1"></i>
+                                    自訂 Output 輸出根目錄：
+                                </label>
+                                <span v-if="browsingTarget === 'output'" class="text-[10px] text-indigo-400 animate-pulse">
+                                    請查看 Windows 彈出的對話框...
+                                </span>
+                            </div>
+                            <div class="flex space-x-1.5 mb-2">
+                                <input 
+                                    type="text" 
+                                    v-model="outputDir"
+                                    placeholder="可手動輸入或複製路徑，例如 D:\Music"
+                                    class="w-full bg-slate-900/80 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500 transition text-xs font-mono"
+                                >
+                                <button 
+                                    @click="selectFolderDialog('output')"
+                                    :disabled="isBrowsingFolder"
+                                    class="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium transition shrink-0 flex items-center space-x-1"
+                                    title="彈出 Windows 視窗瀏覽選擇資料夾"
+                                >
+                                    <i v-if="browsingTarget === 'output'" class="fa-solid fa-spinner fa-spin"></i>
+                                    <i v-else class="fa-solid fa-folder-open"></i>
+                                    <span>{{ browsingTarget === 'output' ? '請選取' : '選取...' }}</span>
+                                </button>
+                                <button 
+                                    @click="openFolder(outputDir)"
+                                    class="px-2.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition shrink-0"
+                                    title="在 Windows 檔案總管中開啟此目錄"
+                                >
+                                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                </button>
+                            </div>
+                            <!-- 常用目錄一鍵快選標籤 -->
+                            <div class="flex items-center flex-wrap gap-1.5">
+                                <span class="text-[10px] text-slate-500">一鍵快速切換：</span>
+                                <button 
+                                    v-for="preset in quickPresets" 
+                                    :key="preset.name"
+                                    @click="outputDir = preset.path"
+                                    :class="{'bg-indigo-950/80 text-indigo-300 border-indigo-500/50': outputDir === preset.path, 'bg-slate-800/80 text-slate-400 border-slate-700': outputDir !== preset.path}"
+                                    class="px-2 py-0.5 rounded text-[10px] border hover:text-white hover:border-slate-500 transition cursor-pointer"
+                                    :title="preset.path"
+                                >
+                                    {{ preset.name }}
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 識別語言設定 -->
+                        <div>
+                            <label class="block text-slate-300 font-medium mb-1.5">
+                                <i class="fa-solid fa-language text-purple-400 mr-1"></i>
+                                歌曲名稱識別語言偏好：
+                            </label>
+                            <select 
+                                v-model="selectedLanguage"
+                                class="w-full bg-slate-900/80 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500 transition text-xs"
+                            >
+                                <option value="zh-TW:TW">🇹🇼 繁體中文 (保留華語原名，日韓歌曲保留亞洲原生字符)</option>
+                                <option value="ja-JP:JP">🇯🇵 日語原名優先 (保留日文假名/漢字)</option>
+                                <option value="zh-CN:CN">🇨🇳 簡體中文</option>
+                                <option value="en-US:US">🇺🇸 英文 (English / 羅馬拼音譯名)</option>
+                            </select>
+                            <p class="text-[11px] text-slate-500 mt-2">
+                                💡 <strong>輸出規則：</strong>音訊檔（無論單曲或多曲）將<strong>直接輸出至 Output 根目錄</strong>；影片檔將在 Output 目錄下建立對應影片名稱的子資料夾。
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 第二行：Upload 暫存目錄與清理選項 -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-800/80">
+                        <div>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label class="text-slate-300 font-medium">
+                                    <i class="fa-solid fa-hard-drive text-cyan-400 mr-1"></i>
+                                    自訂 Uploads 暫存目錄（絕不佔用專案目錄）：
+                                </label>
+                                <span v-if="browsingTarget === 'upload'" class="text-[10px] text-cyan-400 animate-pulse">
+                                    請查看 Windows 彈出的對話框...
+                                </span>
+                            </div>
+                            <div class="flex space-x-1.5 mb-2">
+                                <input 
+                                    type="text" 
+                                    v-model="uploadDir"
+                                    placeholder="系統臨時目錄"
+                                    class="w-full bg-slate-900/80 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500 transition text-xs font-mono"
+                                >
+                                <button 
+                                    @click="selectFolderDialog('upload')"
+                                    :disabled="isBrowsingFolder"
+                                    class="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white font-medium transition shrink-0 flex items-center space-x-1"
+                                    title="選取自訂暫存目錄"
+                                >
+                                    <i v-if="browsingTarget === 'upload'" class="fa-solid fa-spinner fa-spin"></i>
+                                    <i v-else class="fa-solid fa-folder-open"></i>
+                                    <span>{{ browsingTarget === 'upload' ? '請選取' : '選取...' }}</span>
+                                </button>
+                                <button 
+                                    @click="openFolder(uploadDir)"
+                                    class="px-2.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition shrink-0"
+                                    title="在檔案總管中開啟此暫存目錄"
+                                >
+                                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 自動清理核取方塊 -->
+                        <div class="flex items-center space-x-2 pt-5">
+                            <label class="flex items-center space-x-2 cursor-pointer text-slate-300 hover:text-white">
+                                <input 
+                                    type="checkbox" 
+                                    v-model="autoDeleteTemp" 
+                                    class="w-4 h-4 rounded text-indigo-600 bg-slate-900 border-slate-700 focus:ring-indigo-500"
+                                >
+                                <span class="font-medium">切分轉碼完成後自動刪除上傳的暫存大檔案（釋放硬碟空間）</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 檔案拖曳 / 批次上傳區域 -->
+            <section class="glass-panel rounded-2xl p-6 shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-base font-semibold text-slate-200 flex items-center">
+                        <i class="fa-solid fa-photo-film text-indigo-400 mr-2"></i>
+                        拖曳或選取檔案（支援多影片、多音訊混合批量拖入）
+                    </h2>
+                    <span v-if="fileQueue.length > 0" class="text-xs text-indigo-400 font-medium">
+                        待處理隊列：{{ fileQueue.length }} 個檔案
+                    </span>
+                </div>
+
+                <!-- 拖拉區域 (支援 multiple) -->
+                <div 
+                    @dragover.prevent="isDragging = true"
+                    @dragleave.prevent="isDragging = false"
+                    @drop.prevent="handleDrop"
+                    :class="{'border-indigo-500 bg-indigo-500/10': isDragging, 'border-slate-700/80 bg-slate-900/40': !isDragging}"
+                    class="border-2 border-dashed rounded-xl p-8 text-center transition cursor-pointer hover:border-indigo-400"
+                    @click="$refs.fileInput.click()"
+                >
+                    <input 
+                        type="file" 
+                        ref="fileInput" 
+                        class="hidden" 
+                        multiple
+                        accept="video/*,audio/*,.mp4,.mkv,.avi,.mov,.flv,.webm,.ts,.mp3,.wav,.flac,.m4a,.aac,.ogg" 
+                        @change="handleFileSelected"
+                    >
+                    <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 group-hover:text-indigo-400">
+                        <i class="fa-solid fa-cloud-arrow-up text-2xl text-indigo-400"></i>
+                    </div>
+                    <div class="text-sm font-medium text-slate-200">
+                        點擊選取或拖曳<strong>多個影片 / 音訊檔案</strong>至此處
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">
+                        支援 MP4, MKV, AVI, MOV 及 MP3, WAV, FLAC, M4A 等 • 單曲自動重命名 • 多曲自動切分
+                    </p>
+                </div>
+
+                <!-- 待處理檔案隊列清單 -->
+                <div v-if="fileQueue.length > 0" class="mt-5 space-y-3">
+                    <div class="flex items-center justify-between text-xs text-slate-400 pb-1 border-b border-slate-800">
+                        <span>待轉換清單 ({{ fileQueue.length }})</span>
+                        <button 
+                            @click="clearQueue" 
+                            :disabled="isProcessing"
+                            class="text-rose-400 hover:text-rose-300 disabled:opacity-50 transition"
+                        >
+                            <i class="fa-regular fa-trash-can mr-1"></i>清空清單
+                        </button>
+                    </div>
+
+                    <div class="max-h-60 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                        <div 
+                            v-for="(item, idx) in fileQueue" 
+                            :key="item.id"
+                            class="flex items-center justify-between p-3 rounded-xl bg-slate-800/50 border border-slate-700/60 text-xs"
+                        >
+                            <div class="flex items-center space-x-3 truncate">
+                                <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" :class="item.is_audio ? 'bg-emerald-500/20 text-emerald-400' : 'bg-indigo-500/20 text-indigo-400'">
+                                    <i :class="item.is_audio ? 'fa-solid fa-file-audio' : 'fa-solid fa-file-video'"></i>
+                                </div>
+                                <div class="truncate">
+                                    <div class="text-sm font-medium text-slate-200 truncate" :title="item.original_name">{{ item.original_name }}</div>
+                                    <div class="text-[11px] text-slate-400 flex items-center space-x-2 mt-0.5">
+                                        <span>{{ item.is_audio ? '🎵 音訊檔案' : '🎬 影片檔案' }}</span>
+                                        <span>•</span>
+                                        <span :class="getStatusBadgeClass(item.status)">{{ getStatusText(item.status) }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2 shrink-0">
+                                <span v-if="item.progress > 0 && item.status === 'processing'" class="text-indigo-400 font-bold">
+                                    {{ item.progress }}%
+                                </span>
+                                <button 
+                                    v-if="item.status === 'pending'"
+                                    @click="removeFromQueue(idx)" 
+                                    :disabled="isProcessing"
+                                    class="w-6 h-6 rounded flex items-center justify-center text-slate-500 hover:text-rose-400 transition"
+                                >
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 啟動批次處理按鈕 -->
+                    <div class="pt-2 flex justify-end">
+                        <button 
+                            @click="startBatchProcessing"
+                            :disabled="isProcessing || fileQueue.length === 0"
+                            class="px-7 py-3 rounded-xl font-medium text-white bg-gradient-to-r from-indigo-500 via-purple-600 to-pink-600 hover:from-indigo-600 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/25 transition flex items-center space-x-2"
+                        >
+                            <i v-if="isProcessing" class="fa-solid fa-spinner fa-spin"></i>
+                            <i v-else class="fa-solid fa-wand-magic-sparkles"></i>
+                            <span>{{ isProcessing ? `正在處理中 (${currentProcessingIndex + 1}/${fileQueue.length})...` : `開始批次處理 (${fileQueue.length} 個檔案)` }}</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 即時進度展示 (當處理中時) -->
+            <section v-if="isProcessing && activeTask" class="glass-panel rounded-2xl p-6 shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-9 h-9 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                            <i class="fa-solid fa-bolt"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-semibold text-slate-100">
+                                正在處理：{{ activeTask.video_name }}
+                            </h3>
+                            <div class="text-xs text-slate-400">{{ activeTask.details }}</div>
+                        </div>
+                    </div>
+                    <span class="text-lg font-bold text-indigo-400">{{ activeTask.progress }}%</span>
+                </div>
+
+                <!-- 進度條 -->
+                <div class="w-full h-3 rounded-full bg-slate-800 overflow-hidden mb-4 p-0.5">
+                    <div 
+                        class="h-full rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-300"
+                        :style="{ width: activeTask.progress + '%' }"
+                    ></div>
+                </div>
+
+                <!-- 階段步驟 -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                    <div :class="{'text-indigo-400 font-semibold': activeTask.progress >= 5, 'text-slate-500': activeTask.progress < 5}" class="flex items-center">
+                        <i class="fa-solid fa-check-circle mr-1.5"></i> 1. 音訊分析與判定
+                    </div>
+                    <div :class="{'text-indigo-400 font-semibold': activeTask.progress >= 20, 'text-slate-500': activeTask.progress < 20}" class="flex items-center">
+                        <i class="fa-solid fa-check-circle mr-1.5"></i> 2. 智慧歌曲分段
+                    </div>
+                    <div :class="{'text-indigo-400 font-semibold': activeTask.progress >= 40, 'text-slate-500': activeTask.progress < 40}" class="flex items-center">
+                        <i class="fa-solid fa-check-circle mr-1.5"></i> 3. 聲學指紋識別原名
+                    </div>
+                    <div :class="{'text-indigo-400 font-semibold': activeTask.progress >= 95, 'text-slate-500': activeTask.progress < 95}" class="flex items-center">
+                        <i class="fa-solid fa-check-circle mr-1.5"></i> 4. 匯出 MP3 與寫入標籤
+                    </div>
+                </div>
+            </section>
+
+            <!-- 切分成果展示區塊（按檔案分組呈現） -->
+            <section v-if="completedTasks.length > 0" class="glass-panel rounded-2xl p-6 shadow-xl space-y-6">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-700/60">
+                    <h2 class="text-lg font-bold text-slate-100 flex items-center">
+                        <i class="fa-solid fa-circle-check text-emerald-400 mr-2"></i>
+                        處理完成成果列表（共 {{ totalExportedSongs }} 首歌曲）
+                    </h2>
+                    <button 
+                        @click="openFolder(outputDir)"
+                        class="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition flex items-center space-x-1.5"
+                    >
+                        <i class="fa-solid fa-folder-open text-white"></i>
+                        <span>開啟 Output 根目錄</span>
+                    </button>
+                </div>
+
+                <!-- 每個檔案的成果卡片組 -->
+                <div v-for="task in completedTasks" :key="task.task_id" class="p-4 rounded-xl bg-slate-900/60 border border-slate-700/60 space-y-3">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-800">
+                        <div class="flex items-center space-x-2">
+                            <i :class="task.is_audio ? 'fa-solid fa-music text-emerald-400' : 'fa-solid fa-film text-indigo-400'"></i>
+                            <span class="text-sm font-bold text-white">{{ task.video_name }}</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                                {{ task.results.length }} 首歌曲
+                            </span>
+                            <span v-if="task.is_audio" class="text-[10px] px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-500/30">
+                                已直接存放於 Output 根目錄
+                            </span>
+                            <span v-else class="text-[10px] px-2 py-0.5 rounded bg-indigo-950/60 text-indigo-300 border border-indigo-500/30">
+                                子目錄：{{ task.folder_name }}
+                            </span>
+                        </div>
+                        <div class="flex items-center space-x-2 text-xs">
+                            <button 
+                                @click="openFolder(task.folder_path)"
+                                class="text-indigo-400 hover:text-indigo-300 font-medium flex items-center"
+                            >
+                                <i class="fa-regular fa-folder-open mr-1"></i>開啟此資料夾
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 歌曲列表 -->
+                    <div class="space-y-2">
+                        <div 
+                            v-for="(song, sIdx) in task.results" 
+                            :key="song.file_name"
+                            class="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg bg-slate-800/40 border border-slate-700/40 hover:border-slate-600 transition gap-3"
+                        >
+                            <div class="flex items-center space-x-3 min-w-0">
+                                <div class="w-12 h-12 rounded-lg bg-slate-700 overflow-hidden shrink-0">
+                                    <img 
+                                        v-if="song.cover_url" 
+                                        :src="song.cover_url" 
+                                        class="w-full h-full object-cover"
+                                        alt="Cover"
+                                    >
+                                    <div v-else class="w-full h-full flex items-center justify-center text-slate-500">
+                                        <i class="fa-solid fa-music"></i>
+                                    </div>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="text-xs font-bold text-indigo-400">#{{ sIdx + 1 }}</span>
+                                        <h4 class="text-sm font-bold text-white truncate" :title="song.title">{{ song.title }}</h4>
+                                    </div>
+                                    <div class="text-xs text-slate-300 truncate mt-0.5">
+                                        <i class="fa-solid fa-user-pen text-slate-400 mr-1 text-[10px]"></i>
+                                        {{ song.artist }}
+                                    </div>
+                                    <div class="text-[11px] text-slate-400 flex items-center space-x-3 mt-1">
+                                        <span><i class="fa-regular fa-clock mr-1"></i>{{ formatDuration(song.duration) }}</span>
+                                        <span><i class="fa-solid fa-file-export mr-1 text-slate-500"></i>{{ song.file_name }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2 self-end sm:self-center shrink-0">
+                                <audio 
+                                    controls 
+                                    class="h-7 max-w-[200px]"
+                                    :src="'/api/audio-by-path?path=' + encodeURIComponent(song.file_path)"
+                                ></audio>
+                                <a 
+                                    :href="'/api/audio-by-path?path=' + encodeURIComponent(song.file_path)"
+                                    :download="song.file_name"
+                                    class="w-7 h-7 rounded bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-slate-200 hover:text-white transition"
+                                    title="下載 MP3"
+                                >
+                                    <i class="fa-solid fa-download text-xs"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Vue App Logic -->
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    outputDir: '',
+                    uploadDir: '',
+                    quickPresets: [],
+                    autoDeleteTemp: true,
+                    selectedLanguage: 'zh-TW:TW',
+                    fileQueue: [],
+                    isDragging: false,
+                    isProcessing: false,
+                    isBrowsingFolder: false,
+                    browsingTarget: '',
+                    currentProcessingIndex: 0,
+                    activeTask: null,
+                    completedTasks: [],
+                    pollTimer: null
+                };
+            },
+            computed: {
+                totalExportedSongs() {
+                    return this.completedTasks.reduce((acc, t) => acc + (t.results ? t.results.length : 0), 0);
+                }
+            },
+            mounted() {
+                this.loadConfig();
+            },
+            methods: {
+                async loadConfig() {
+                    try {
+                        const res = await fetch('/api/default-config');
+                        const data = await res.json();
+                        this.outputDir = data.default_output_dir;
+                        this.uploadDir = data.default_upload_dir;
+                        this.quickPresets = data.quick_presets || [];
+                        if (data.default_language) {
+                            this.selectedLanguage = data.default_language;
+                        }
+                    } catch (e) {
+                        console.error('Failed to load default config:', e);
+                    }
+                },
+                async selectFolderDialog(target) {
+                    this.isBrowsingFolder = true;
+                    this.browsingTarget = target;
+                    const cur = target === 'output' ? this.outputDir : this.uploadDir;
+                    
+                    const timeoutId = setTimeout(() => {
+                        if (this.isBrowsingFolder) {
+                            this.isBrowsingFolder = false;
+                            this.browsingTarget = '';
+                        }
+                    }, 25000);
+
+                    try {
+                        const formData = new FormData();
+                        formData.append('current_path', cur || '');
+                        const res = await fetch('/api/select-folder', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const data = await res.json();
+                        if (data.status === 'success' && data.path) {
+                            if (target === 'output') {
+                                this.outputDir = data.path;
+                            } else {
+                                this.uploadDir = data.path;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Folder dialog error:', e);
+                    } finally {
+                        clearTimeout(timeoutId);
+                        this.isBrowsingFolder = false;
+                        this.browsingTarget = '';
+                    }
+                },
+                async openFolder(folderPath) {
+                    if (!folderPath) return;
+                    const formData = new FormData();
+                    formData.append('folder_path', folderPath);
+                    await fetch('/api/open-folder', {
+                        method: 'POST',
+                        body: formData
+                    });
+                },
+                async handleFileSelected(e) {
+                    const files = Array.from(e.target.files);
+                    if (files.length > 0) {
+                        await this.uploadFiles(files);
+                    }
+                    e.target.value = '';
+                },
+                async handleDrop(e) {
+                    this.isDragging = false;
+                    const files = Array.from(e.dataTransfer.files);
+                    if (files.length > 0) {
+                        await this.uploadFiles(files);
+                    }
+                },
+                async uploadFiles(files) {
+                    for (const file of files) {
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        formData.append('custom_upload_dir', this.uploadDir);
+                        try {
+                            const res = await fetch('/api/upload', {
+                                method: 'POST',
+                                body: formData
+                            });
+                            const data = await res.json();
+                            if (data.status === 'success') {
+                                this.fileQueue.push({
+                                    id: Math.random().toString(36).substring(7),
+                                    original_name: data.original_name,
+                                    path: data.path,
+                                    is_audio: data.is_audio,
+                                    status: 'pending',
+                                    progress: 0
+                                });
+                            }
+                        } catch (e) {
+                            console.error('Upload failed for file:', file.name, e);
+                        }
+                    }
+                },
+                removeFromQueue(idx) {
+                    this.fileQueue.splice(idx, 1);
+                },
+                clearQueue() {
+                    this.fileQueue = [];
+                },
+                getStatusText(st) {
+                    switch (st) {
+                        case 'pending': return '待處理';
+                        case 'processing': return '處理中...';
+                        case 'completed': return '已完成';
+                        case 'failed': return '失敗';
+                        default: return st;
+                    }
+                },
+                getStatusBadgeClass(st) {
+                    switch (st) {
+                        case 'pending': return 'text-slate-400';
+                        case 'processing': return 'text-indigo-400 font-bold animate-pulse';
+                        case 'completed': return 'text-emerald-400 font-bold';
+                        case 'failed': return 'text-rose-400 font-bold';
+                        default: return '';
+                    }
+                },
+                async startBatchProcessing() {
+                    if (this.fileQueue.length === 0 || this.isProcessing) return;
+                    this.isProcessing = true;
+                    this.currentProcessingIndex = 0;
+
+                    for (let i = 0; i < this.fileQueue.length; i++) {
+                        const item = this.fileQueue[i];
+                        if (item.status === 'completed') continue;
+
+                        this.currentProcessingIndex = i;
+                        item.status = 'processing';
+                        item.progress = 5;
+
+                        const [langCode, countryCode] = this.selectedLanguage.split(':');
+                        const formData = new FormData();
+                        formData.append('video_path', item.path);
+                        formData.append('video_name', item.original_name);
+                        formData.append('output_dir', this.outputDir);
+                        formData.append('language', langCode);
+                        formData.append('endpoint_country', countryCode);
+                        formData.append('auto_delete_temp', this.autoDeleteTemp ? 'true' : 'false');
+
+                        try {
+                            const res = await fetch('/api/process', {
+                                method: 'POST',
+                                body: formData
+                            });
+                            const data = await res.json();
+                            const taskId = data.task_id;
+                            await this.pollTaskUntilDone(taskId, item);
+                        } catch (e) {
+                            console.error('Process error:', e);
+                            item.status = 'failed';
+                        }
+                    }
+
+                    this.isProcessing = false;
+                    this.activeTask = null;
+                },
+                pollTaskUntilDone(taskId, queueItem) {
+                    return new Promise((resolve) => {
+                        const timer = setInterval(async () => {
+                            try {
+                                const res = await fetch(`/api/task/${taskId}`);
+                                const data = await res.json();
+                                this.activeTask = data;
+                                queueItem.progress = data.progress;
+
+                                if (data.status === 'completed') {
+                                    clearInterval(timer);
+                                    queueItem.status = 'completed';
+                                    this.completedTasks.unshift(data);
+                                    resolve();
+                                } else if (data.status === 'failed') {
+                                    clearInterval(timer);
+                                    queueItem.status = 'failed';
+                                    resolve();
+                                }
+                            } catch (e) {
+                                console.error('Poll error:', e);
+                                clearInterval(timer);
+                                queueItem.status = 'failed';
+                                resolve();
+                            }
+                        }, 1000);
+                    });
+                },
+                formatDuration(sec) {
+                    const m = Math.floor(sec / 60);
+                    const s = Math.floor(sec % 60);
+                    return `${m}:${s < 10 ? '0' : ''}${s}`;
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

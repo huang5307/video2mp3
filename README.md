@@ -1,7 +1,7 @@
 # Video2MP3 - 智慧音樂切分與辨識工具
 
 專為「音樂合輯影片、演唱會、音樂檔案、BGM 合輯」設計的全自動歌曲切分與標籤辨識工具。
-**提供現代化、直覺易用的 Web 圖形介面，無需任何命令列操作。**
+**提供現代化 Web 圖形介面（雙擊即用）與強大的 CLI 命令列介面（方便 AI Agent、自動化腳本或第三方程序調用）。**
 
 ---
 
@@ -33,8 +33,108 @@
 
 ---
 
-## 🚀 一鍵啟動方式
+## 🤖 CLI 命令列模式（AI Agent / 自動化串接專用）
 
-在專案目錄下：
-* **滑鼠雙擊 [`start_app.bat`](file:///c:/Users/kangl/OneDrive/Projects/video2mp3/start_app.bat)**：自動啟動服務並在瀏覽器中開啟操作介面！
-* 介面網址預設為：[http://127.0.0.1:8000](http://127.0.0.1:8000)
+在 AI 時代，Video2MP3 提供完整的命令列介面 `cli.py`，所有功能皆可透過參數調用，並支援將結果輸出為標準 JSON 格式至 `stdout`，方便 AI Agent、Shell 腳本或後台服務無縫整合。
+
+### 1. 基本用法
+
+```bash
+python cli.py [選項]
+```
+
+### 2. 常用命令範例
+
+#### ① 處理單一影片或音訊檔案
+```bash
+python cli.py -i "concert.mp4"
+python cli.py -i "song_collection.mp3"
+```
+
+#### ② 批次處理多個檔案並指定輸出資料夾
+```bash
+python cli.py -i "video1.mp4" "video2.mkv" "album.mp3" -o "D:\MyMusic\Output"
+```
+
+#### ③ 批次掃描並處理整個資料夾內的音樂或影片
+```bash
+python cli.py -d "C:\Users\Downloads\MusicVideos" -o "D:\Music"
+```
+
+#### ④ 指定語言偏好（例如：日文歌曲保留日文原生字符）
+```bash
+python cli.py -i "jpop_live.mp4" --lang ja-JP
+```
+> 支援語言選項：`zh-TW`（繁體中文，預設）、`ja-JP`（日文）、`zh-CN`（簡體中文）、`en-US`（英文）。
+
+#### ⑤ AI Agent / 腳本串接模式（輸出結構化 JSON）
+使用 `--json` 參數時，即時進度會導向 `stderr`，而最終結構化分析結果會輸出為乾淨的 JSON 字串至 `stdout`：
+```bash
+python cli.py -i "concert.mp4" --output "D:\Music" --json
+```
+
+**JSON 輸出結構範例：**
+```json
+{
+  "status": "success",
+  "total_files": 1,
+  "output_directory": "C:\\Users\\kangl\\Music\\Video2MP3",
+  "tasks": [
+    {
+      "file": "C:\\Users\\kangl\\Downloads\\陳昇【最後一次溫柔】.mp4",
+      "file_name": "陳昇【最後一次溫柔】.mp4",
+      "is_audio": false,
+      "status": "success",
+      "output_directory": "C:\\Users\\kangl\\Music\\Video2MP3\\陳昇【最後一次溫柔】",
+      "song_count": 1,
+      "results": [
+        {
+          "index": 1,
+          "title": "最后一次温柔(Rough Road)",
+          "artist": "陈升",
+          "album": "Single",
+          "duration": 288.3,
+          "start_time": 0.0,
+          "end_time": 288.3,
+          "file_name": "陈升 .01 - 最后一次温柔(Rough Road).mp3",
+          "file_path": "C:\\Users\\kangl\\Music\\Video2MP3\\陳昇【最後一次溫柔】\\陈升 .01 - 最后一次温柔(Rough Road).mp3",
+          "cover_url": "https://is1-ssl.mzstatic.com/image/thumb/Music/6b/e3/7d/mzi.wjjenmpu.jpg/400x400cc.jpg"
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### ⑥ 透過 CLI 啟動 Web UI 服務
+```bash
+python cli.py --web
+# 或自訂連接埠與主機位址
+python cli.py --web --host 0.0.0.0 --port 8080
+```
+
+---
+
+### 3. CLI 完整參數清單
+
+| 參數 | 完整名稱 | 說明 | 預設值 |
+| :--- | :--- | :--- | :--- |
+| `-i` | `--input` | 輸入的影片或音訊檔案路徑（支援傳入多個路徑或萬用字元 `*.mp4`） | 無 |
+| `-d` | `--dir` | 遞迴掃描並處理指定資料夾內的所有支援媒體檔案 | 無 |
+| `-o` | `--output` | 自訂 Output 匯出根目錄 | `~/Music/Video2MP3` |
+| `-l` | `--lang` | 歌曲名稱辨識偏好語言：`zh-TW`, `ja-JP`, `zh-CN`, `en-US` | `zh-TW` |
+| `-c` | `--country` | Shazam API 地區代碼（如 `TW`, `JP`, `US`, `CN`） | 自動對應語言 |
+| `--json` | `--json` | 以標準 JSON 格式將切分與辨識結果輸出至 `stdout` | 關閉 |
+| `-q` | `--quiet` | 安靜模式，不印出動態進度條 | 關閉 |
+| `--web` | `--web` | 一鍵啟動 Web 圖形介面服務 | 關閉 |
+| `--host` | `--host` | Web 伺服器綁定 IP | `127.0.0.1` |
+| `--port` | `--port` | Web 伺服器連接埠 | `8000` |
+
+---
+
+## 🚀 Web 圖形介面啟動方式
+
+若偏好使用瀏覽器圖形操作：
+1. **滑鼠雙擊 [`start_app.bat`](file:///c:/Users/kangl/OneDrive/Projects/video2mp3/start_app.bat)** 或在終端機輸入 `python cli.py --web`。
+2. 瀏覽器自動開啟操作介面：[http://127.0.0.1:8000](http://127.0.0.1:8000)。
+3. 支援拖曳多個影片或音訊檔案進入佇列，自訂輸出與暫存資料夾，即時預覽切分進度與專輯封面。
